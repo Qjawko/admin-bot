@@ -24,19 +24,46 @@ type ReminderQueue interface {
 	Send(ctx context.Context, chatId int64, delay time.Duration) error
 }
 
-type Start struct {
-	challengeGen        ChallengeGenerator
-	challengeRepository ChallengeRepository
-	reminderQueue       ReminderQueue
+type SubscriptionRepository interface {
+	Set(ctx context.Context, expiration time.Duration, userId int) error
+	Get(ctx context.Context, userId int) (string, error)
 }
 
-func NewStart(challengeGen ChallengeGenerator, challengeStorage ChallengeRepository, queue ReminderQueue) *Start {
-	return &Start{challengeGen: challengeGen, challengeRepository: challengeStorage, reminderQueue: queue}
+type Start struct {
+	challengeGen           ChallengeGenerator
+	challengeRepository    ChallengeRepository
+	subscriptionRepository SubscriptionRepository
+	reminderQueue          ReminderQueue
+}
+
+func NewStart(
+	challengeGen ChallengeGenerator,
+	challengeRepository ChallengeRepository,
+	subscriptionRepository SubscriptionRepository,
+	reminderQueue ReminderQueue,
+) *Start {
+	return &Start{
+		challengeGen:           challengeGen,
+		challengeRepository:    challengeRepository,
+		subscriptionRepository: subscriptionRepository,
+		reminderQueue:          reminderQueue,
+	}
 }
 
 func (s Start) ServeCall(ctx context.Context, req *tgbotapi.Message, rsp *tgbotapi.MessageConfig) {
 	if req.From == nil && req.From.IsBot {
 		rsp.Text = "from field should not be nil and not bot"
+		return
+	}
+
+	status, err := s.subscriptionRepository.Get(ctx, req.From.ID)
+	if err != nil {
+		rsp.Text = fmt.Sprintf("getting subscription status: %s", err)
+		return
+	}
+
+	if status == "active" {
+		rsp.Text = fmt.Sprintf("welcome to the club buddy")
 		return
 	}
 

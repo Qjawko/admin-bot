@@ -55,6 +55,7 @@ func main() {
 	}
 
 	challengeRepository := repository.NewChallenge(rdb)
+	subscriptionRepository := repository.NewSubscription(rdb)
 
 	routingKey := os.Getenv("TG_BOT_AMQP_ROUTING_KEY")
 	queueName := os.Getenv("TG_BOT_AMQP_QUEUE")
@@ -68,8 +69,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	startHandler := handlers.NewStart(generator.NewChallenge(), challengeRepository, &reminderQueue)
-	nonCommandHandler := handlers.NewDefault(challengeRepository)
+	startHandler := handlers.NewStart(generator.NewChallenge(), challengeRepository, subscriptionRepository, &reminderQueue)
+	nonCommandHandler := handlers.NewDefault(challengeRepository, subscriptionRepository)
 
 	r := router.NewRouter(logger, bot)
 
